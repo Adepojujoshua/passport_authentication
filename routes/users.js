@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router();
-const bcyrpt = require('bcryptjs')
+const bcrypt = require('bcryptjs')
+const passport = require('passport');
 
 const User = require('../models/Users')
 
@@ -51,15 +52,34 @@ router.post('/register',(req,res)=>{
                     email,
                     password
                 })
-                newUser.save()
-                .then(() => {
-                    console.log(newUser);
-                    res.send('hello')
-                })
+
                 
+                // Hash password
+                bcrypt.genSalt(10, (err, salt)=>{
+                    bcrypt.hash(newUser.password, salt, (err,hash)=>{
+                        if(err) throw err;
+                        // set password to hashed
+                        newUser.password = hash;
+
+                        newUser.save()
+                        .then((user) => {
+                            req.flash('success_msg', 'You are now registered and can login');
+                            res.redirect('/users/login')
+                        })
+                        .catch((err) => {console.log(err)})
+                    })
+                })
             }
         })
     }
 });
+router.post('/login', (req, res, next) => {
+    passport.authenticate('local', {
+        successRedirect: '/dashboard',
+        failureRedirect: '/users/login',
+        failureFlash: true
+    })(req, res,next);
+})
+
 
 module.exports = router
