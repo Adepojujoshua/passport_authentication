@@ -14,7 +14,7 @@ router.get('/register',(req,res)=>{
     res.render('register')
 })
 
-router.post('/register',(req,res)=>{
+router.post('/register',async (req,res)=>{
     const { name, email, password, password2 } = req.body;
     let errors = [];
     if(!name || !email || !password || !password2){
@@ -34,43 +34,39 @@ router.post('/register',(req,res)=>{
             password,
             password2
         })
-    }else{
-        User.findOne({ email:email })
-        .then(user => {
-            if(user){
-            errors.push({msg:'Email already in use'});
-            res.render('register', {errors,
-            name,
-            email,
-            password,
-            password2
-            });
-            }
-            else{
+    }else {
+        try {
+            const user = await User.findOne({ email: email });
+            if(user) {
+                errors.push({ message: 'User already registered' })
+                res.render('register', {
+                    errors,
+                    name,
+                    email,
+                    password,
+                    password2
+                })
+            }else {
                 const newUser = new User({
                     name,
                     email,
                     password
-                })
+                });
 
-                
-                // Hash password
-                bcrypt.genSalt(10, (err, salt)=>{
-                    bcrypt.hash(newUser.password, salt, (err,hash)=>{
-                        if(err) throw err;
-                        // set password to hashed
-                        newUser.password = hash;
-
-                        newUser.save()
-                        .then((user) => {
-                            req.flash('success_msg', 'You are now registered and can login');
-                            res.redirect('/users/login')
-                        })
-                        .catch((err) => {console.log(err)})
-                    })
-                })
+                const salt = await bcrypt.genSalt(10);
+                const hash = await bcrypt.hash(newUser.password, salt);
+                newUser.password = hash;
+        
+                await newUser.save();
+        
+                req.flash('success_msg', 'You are now registered and can log in');
+                res.redirect('/users/login');
             }
-        })
+        }
+        catch(err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 router.post('/login', (req, res, next) => {
@@ -81,5 +77,56 @@ router.post('/login', (req, res, next) => {
     })(req, res,next);
 })
 
+router.get('/logout', (req,res)=>{
+    req.logout((err)=>{
+        if(err){
+            console.log(err);
+        };
+        req.flash('success_msg', 'You have successfully logged out')
+        res.redirect('/users/login')
+    });
+    
+})
+
 
 module.exports = router
+
+
+// else{
+//     User.findOne({ email:email })
+//     .then(user => {
+//         if(user){
+//         errors.push({msg:'Email already in use'});
+//         res.render('register', {errors,
+//         name,
+//         email,
+//         password,
+//         password2
+//         });
+//         }
+//         else{
+//             const newUser = new User({
+//                 name,
+//                 email,
+//                 password
+//             })
+
+            
+//             // Hash password
+//             bcrypt.genSalt(10, (err, salt)=>{
+//                 bcrypt.hash(newUser.password, salt, (err,hash)=>{
+//                     if(err) throw err;
+//                     // set password to hashed
+//                     newUser.password = hash;
+
+//                     newUser.save()
+//                     .then((user) => {
+//                         req.flash('success_msg', 'You are now registered and can login');
+//                         res.redirect('/users/login')
+//                     })
+//                     .catch((err) => {console.log(err)})
+//                 })
+//             })
+//         }
+//     })
+// }
